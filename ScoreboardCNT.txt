@@ -1,0 +1,205 @@
+
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+use IEEE.NUMERIC_STD.ALL;
+
+
+entity ScoreboardCNT is
+    Port ( CLK100MHZ : in STD_LOGIC;
+           btnL : in STD_LOGIC;
+           btnR : in STD_LOGIC;
+           btnD : in STD_LOGIC;
+           
+           seg : out STD_LOGIC_VECTOR (0 to 6);
+           an : out STD_LOGIC_VECTOR (3 downto 0);
+           dp : out STD_LOGIC);
+end ScoreboardCNT;
+
+architecture Behavioral of ScoreboardCNT is
+component driver7seg is
+    Port ( clk : in STD_LOGIC; --100MHz board clock input
+           Din : in STD_LOGIC_VECTOR (15 downto 0); --16 bit binary data for 4 displays
+           an : out STD_LOGIC_VECTOR (3 downto 0); --anode outputs selecting individual displays 3 to 0
+           seg : out STD_LOGIC_VECTOR (0 to 6); -- cathode outputs for selecting LED-s in each display
+           dp_in : in STD_LOGIC_VECTOR (3 downto 0); --decimal point input values
+           dp_out : out STD_LOGIC; --selected decimal point sent to cathodes
+           rst : in STD_LOGIC); --global reset
+           
+end component driver7seg;
+  component DeBouncer is
+  port(   Clock : in std_logic;
+          Reset : in std_logic;
+          button_in : in std_logic;
+          pulse_out : out std_logic
+                );
+  end component;
+   signal inc_o, inc_m : std_logic;
+     signal dec_o, dec_m : std_logic;
+      type states is (idle, set_o, set_m);
+        signal current_state : states := idle;
+        signal CLK1HZ : std_logic;
+   
+    
+      type m is record
+          dig1 : integer range 0 to 9;
+          dig2 : integer range 0 to 9;
+      end record;
+      type o is record
+          dig1 : integer range 0 to 9;
+          dig2 : integer range 0 to 9;
+      end record;
+        type timp is record          
+             m : m;
+             o: o;
+         end record;
+         signal t : timp := ((0,0),(0,0)) ;  
+         
+       signal o_m : STD_LOGIC_VECTOR (15 downto 0);
+        signal d : STD_LOGIC_VECTOR (15 downto 0);
+          signal btnLd, btnCd, btnRd ,btnDd: std_logic;
+begin
+ 
+deb1 : DeBouncer port map (clock => CLK100MHZ, Reset => '0', button_in => btnL, pulse_out => btnLd);
+deb2 : DeBouncer port map (clock => CLK100MHZ, Reset => '0', button_in => btnR, pulse_out => btnRd);
+deb3 : DeBouncer port map (clock => CLK100MHZ, Reset => '0', button_in => btnD, pulse_out => btnDd);
+
+
+
+process (CLK100MHZ)
+begin
+
+
+    if rising_edge(CLK100MHZ) then
+        case (current_state) is
+            when idle => 
+                if btnLd = '1' then
+                    current_state <= set_o;
+                   
+                    
+                end if;
+            when set_o => 
+                if btnLd = '1' then
+                    current_state <= set_m;
+              
+                end if;
+            when set_m => 
+                if btnLd = '1' then
+                    current_state <= idle;
+               
+                 end if;
+            
+              
+           
+                
+                 
+                        
+                           
+                                  
+                             
+                                  
+                                    
+           end case;
+           
+           
+                      
+       end if;
+   end process;
+   
+inc_o <= '1' when current_state = set_o and btnRd = '1' else '0';
+inc_m <= '1' when current_state = set_m and btnRd = '1' else '0';
+dec_o <= '1' when current_state = set_o and btnDd = '1' else '0';
+dec_m <= '1' when current_state = set_m and btnDd = '1' else '0';
+
+
+
+
+process (CLK100MHZ)
+
+begin
+
+   if rising_edge(CLK100MHZ) then
+      
+              if inc_m = '1' and dec_m= '0' then
+                   if t.m.dig1 = 9 then
+                      t.m.dig1 <= 0;
+                      if t.m.dig2 = 9 then
+                         t.m.dig2 <= 0;
+                      else
+                         t.m.dig2 <= t.m.dig2 + 1;
+                      end if;
+                   else
+                      t.m.dig1 <= t.m.dig1 + 1;   
+                   end if; 
+               elsif inc_o = '1' and dec_o ='0' then
+                   if t.o.dig1 = 9 then 
+                   t.o.dig1 <= 0;
+                    if  t.o.dig2 = 9 then
+                      
+                      t.o.dig2 <= 0;
+                  else
+                       t.o.dig2 <= t.o.dig2 + 1;
+                       end if;
+                   else 
+                        t.o.dig1 <= t.o.dig1 + 1;
+                   end if;
+               --end if;
+      --end if;
+      
+      elsif dec_m = '1' and inc_m ='0' then
+                      if t.m.dig1 = 0 then
+                         t.m.dig1 <= 9;
+                         if t.m.dig2 = 0 then
+                            t.m.dig2 <= 9;
+                         else
+                            t.m.dig2 <= t.m.dig2 - 1;
+                         end if;
+                      else
+                         t.m.dig1 <= t.m.dig1 - 1;   
+                      end if; 
+                  elsif dec_o = '1' and inc_o = '0' then
+                      if t.o.dig1 = 0 then 
+                      t.o.dig1 <= 9;
+                       if  t.o.dig2 = 0 then
+                         
+                         t.o.dig2 <= 9;
+                    else
+                          t.o.dig2 <= t.o.dig2 - 1;
+                          end if;
+                      else 
+                           t.o.dig1 <= t.o.dig1 - 1;
+                      end if;
+                  end if;
+--      if inc_m = '1' and  dec_m ='1'
+--      then NULL;
+--      elsif
+--       inc_o = '1' and  dec_o ='1'
+--        then NULL;
+
+
+  
+end if;
+
+    o_m <= conv_std_logic_vector(t.o.dig2,4) &
+                        conv_std_logic_vector(t.o.dig1,4) &
+                      conv_std_logic_vector(t.m.dig2,4) &
+                      conv_std_logic_vector(t.m.dig1,4);
+     
+end process;
+
+                 
+  d <= o_m;                                                       
+display :  driver7seg port map (
+                          clk => CLK100MHZ,
+                          Din => d,
+                          an => an,
+                          seg => seg,
+                          dp_in => (others => '0'),
+                          dp_out => dp, 
+                          rst => '0');
+                          
+                          end Behavioral;
